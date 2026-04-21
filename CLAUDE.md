@@ -34,25 +34,26 @@ Content Script (hh.ru) → Background Service Worker → chrome.storage.local
 ## Ключевые решения
 
 ### 1. Обход 502 при прямом fetch
+
 HH блокирует fetch из контекста страницы. Решение: background-координатор
 открывает реальную вкладку и листает страницы через `chrome.tabs.update()`,
 content script парсит DOM на каждой странице.
 
 ### 2. Селекторы HH.ru (data-qa)
 
-| Поле | Селектор |
-|------|----------|
-| Карточка | `[data-qa="vacancy-serp__vacancy"]` |
-| ID | `[id]` внутри карточки |
-| Заголовок | `[data-qa="serp-item__title-text"]` |
-| Ссылка | `[data-qa="serp-item__title"]` |
-| **Salary** | **нет data-qa!** — ищем span с ₽/$/€ регекспом |
-| Работодатель | `[data-qa="vacancy-serp__vacancy-employer-text"]` |
-| Рейтинг | `[data-qa="company-review-rating-value"]` |
-| Город | `[data-qa="vacancy-serp__vacancy-address"]` |
-| Теги | `[data-qa^="vacancy-label"]`, `[data-qa^="vacancy-serp__vacancy-work-experience"]` |
-| Счётчик | `h1` + regex |
-| Пагинация | `[data-qa="pager-block"] a` |
+| Поле         | Селектор                                                                           |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Карточка     | `[data-qa="vacancy-serp__vacancy"]`                                                |
+| ID           | `[id]` внутри карточки                                                             |
+| Заголовок    | `[data-qa="serp-item__title-text"]`                                                |
+| Ссылка       | `[data-qa="serp-item__title"]`                                                     |
+| **Salary**   | **нет data-qa!** — ищем span с ₽/$/€ регекспом                                     |
+| Работодатель | `[data-qa="vacancy-serp__vacancy-employer-text"]`                                  |
+| Рейтинг      | `[data-qa="company-review-rating-value"]`                                          |
+| Город        | `[data-qa="vacancy-serp__vacancy-address"]`                                        |
+| Теги         | `[data-qa^="vacancy-label"]`, `[data-qa^="vacancy-serp__vacancy-work-experience"]` |
+| Счётчик      | `h1` + regex                                                                       |
+| Пагинация    | `[data-qa="pager-block"] a`                                                        |
 
 ### 3. Скоринг
 
@@ -65,11 +66,13 @@ content script парсит DOM на каждой странице.
 - **Min score:** 5
 
 ### 4. Persistence
+
 chrome.storage.local через типизированную обёртку.
 Дедуп по ID. Пользовательские пометки (liked/applied/hidden) сохраняются
 при повторном сканировании.
 
 ### 5. UI реактивность
+
 Zustand store подписывается на `chrome.storage.onChanged` — данные в dashboard
 обновляются в реальном времени во время скана (без ручного refresh).
 
@@ -78,7 +81,9 @@ Zustand store подписывается на `chrome.storage.onChanged` — д�
 Расширение теперь поддерживает **два предопределённых профиля резюме**:
 
 ### Fullstack Developer (Middle+)
+
 Файл: [rezume_fullstack-developer.txt](rezume_fullstack-developer.txt)
+
 - **Core (+10):** TypeScript, React, Next.js, Node.js, NestJS, Fullstack
 - **Related (+5):** Prisma, PostgreSQL, Docker, CI/CD, Redis, WebSocket
 - **Nice (+2):** Tailwind, Monorepo, TanStack Query, Caddy, Nginx
@@ -86,7 +91,9 @@ Zustand store подписывается на `chrome.storage.onChanged` — д�
 - **Hard exclude (-999):** 1с, bitrix, PHP, Java, Kotlin, Unity, QA, и т.д.
 
 ### DevOps / System Engineer
+
 Файл: [rezume_admin-devops.txt](rezume_admin-devops.txt)
+
 - **Core (+10):** PowerShell, Active Directory, Linux, Docker, DevOps, Kubernetes
 - **Related (+5):** Windows Server, Bash, Terraform, Ansible, Zabbix, Prometheus
 - **Nice (+2):** OpenStack, SSL/TLS, ITSM, Nginx, HAProxy
@@ -94,12 +101,14 @@ Zustand store подписывается на `chrome.storage.onChanged` — д�
 - **Hard exclude (-999):** PHP, Java, CMS, 1с, Bitrix, QA
 
 ### Выбор профиля
-1. Dashboard → Settings (⚙️) 
-2. Раздел "Выберите профиль резюме:" 
+
+1. Dashboard → Settings (⚙️)
+2. Раздел "Выберите профиль резюме:"
 3. Нажать на нужный профиль — конфиг скорирования обновится моментально
 4. При новом сканировании вакансии ресчитываются по выбранному профилю
 
 ### Файлы для support
+
 - `src/shared/resume-parser.ts` — парсер профилей с predefined конфигами
 - `src/shared/constants.ts` — `FULLSTACK_SCORING`, `DEVOPS_SCORING`, `getScoringConfigByProfile()`
 - `src/shared/types.ts` — `ProfileType = 'fullstack' | 'devops'`

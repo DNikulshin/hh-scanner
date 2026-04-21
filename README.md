@@ -49,6 +49,7 @@
 Расширение поддерживает **2 готовых профиля** с разными стеками:
 
 ### 1️⃣ Fullstack Developer (Middle+)
+
 - **Core (+10):** TypeScript, React, Next.js, Node.js, NestJS, Fullstack
 - **Related (+5):** Prisma, PostgreSQL, Docker, CI/CD, Redis, WebSocket
 - **Nice (+2):** Tailwind, Monorepo, TanStack Query, Caddy
@@ -56,6 +57,7 @@
 📄 Справка: [rezume_fullstack-developer.txt](rezume_fullstack-developer.txt)
 
 ### 2️⃣ DevOps / System Engineer
+
 - **Core (+10):** PowerShell, Active Directory, Linux, Docker, DevOps, Kubernetes
 - **Related (+5):** Windows Server, Bash, Terraform, Ansible, Zabbix, Prometheus
 - **Nice (+2):** OpenStack, SSL/TLS, Nginx, HAProxy
@@ -115,21 +117,25 @@ npm run build
 ### 3. Использование
 
 **Через Popup (быстро):**
+
 1. Клик по иконке → видишь статистику и прогресс
 2. Кнопка **▶ Запустить скан** — расширение откроет скрытую вкладку, пройдёт по всем страницам hh.ru, соберёт и оценит вакансии
 3. Кнопка **Открыть Dashboard** — полноценный UI
 
 **Через Dashboard:**
+
 - Таблица всех вакансий с оценками
 - Фильтры: статус / поиск / мин. зарплата / сортировка
 - ⚙ **Settings** — выбор профиля и редактор весов ключевых слов
 
 **Выбор профиля:**
+
 1. Открой Dashboard
 2. Нажми ⚙ **Settings** → модалка "Настройка скоринга"
 3. Выбери: **Fullstack Developer** или **DevOps / System Engineer**
 4. Профиль сохранится → все вакансии пересчитаются
 5. При новом сканировании используется выбранный профиль
+
 - ⇣ **Экспорт** → JSON файл
 
 ## Dev-режим
@@ -146,14 +152,14 @@ Vite с HMR — изменения в UI подхватываются без п�
 
 ### Группы весов
 
-| Группа             | Вес  | Примеры ключевиков                       |
-|--------------------|------|------------------------------------------|
-| Core stack         | +10  | typescript, react, next.js, nestjs       |
-| Related stack      | +5   | prisma, postgresql, docker, redis        |
-| Nice-to-have       | +2   | monorepo, trpc, tailwind                 |
-| Junior penalty     | −3   | junior, стажёр, без опыта                |
-| Senior soft penalty| −1   | senior, lead, архитектор                 |
-| **Hard exclude**   | −999 | 1с, битрикс, php, java, kotlin, stm32    |
+| Группа              | Вес  | Примеры ключевиков                    |
+| ------------------- | ---- | ------------------------------------- |
+| Core stack          | +10  | typescript, react, next.js, nestjs    |
+| Related stack       | +5   | prisma, postgresql, docker, redis     |
+| Nice-to-have        | +2   | monorepo, trpc, tailwind              |
+| Junior penalty      | −3   | junior, стажёр, без опыта             |
+| Senior soft penalty | −1   | senior, lead, архитектор              |
+| **Hard exclude**    | −999 | 1с, битрикс, php, java, kotlin, stm32 |
 
 Все веса и списки слов редактируются в UI через ⚙ **Скоринг**.
 
@@ -200,17 +206,20 @@ MV3 service worker может уснуть — просто кликни по и
 ### Как добавить новый профиль
 
 1. Расширить `ProfileType` в [src/shared/types.ts](src/shared/types.ts):
+
    ```typescript
-   export type ProfileType = 'fullstack' | 'devops' | 'backend'; // +backend
+   export type ProfileType = "fullstack" | "devops" | "backend"; // +backend
    ```
 
 2. Добавить профиль в [src/shared/resume-parser.ts](src/shared/resume-parser.ts):
+
    ```typescript
    export const BACKEND_PROFILE: ProfileData = { ... }
    ALL_PROFILES.backend = BACKEND_PROFILE;
    ```
 
 3. Добавить конфиг в [src/shared/constants.ts](src/shared/constants.ts):
+
    ```typescript
    export const BACKEND_SCORING: ScoringConfig = { ... }
    // обновить getScoringConfigByProfile()
@@ -221,6 +230,7 @@ MV3 service worker может уснуть — просто кликни по и
 ### Архитектура скорирования
 
 **Поток данных:**
+
 ```
 Content Script парсит DOM
   ↓
