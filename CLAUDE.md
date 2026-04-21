@@ -104,15 +104,31 @@ Zustand store подписывается на `chrome.storage.onChanged` — д�
 
 1. Dashboard → Settings (⚙️)
 2. Раздел "Выберите профиль резюме:"
-3. Нажать на нужный профиль — конфиг скорирования обновится моментально
-4. При новом сканировании вакансии ресчитываются по выбранному профилю
+3. Нажать на нужный профиль — применяется моментально:
+   - Конфиг скорирования меняется на соответствующий профилю.
+   - **URL поиска hh.ru** переключается на URL активного профиля (`profileUrls[profile]`).
+   - **Уже сохранённые вакансии пересчитываются** под новый профиль: обновляются `score`, `matches`, `excluded`; те, что перестали проходить фильтр, помечаются `status: "hidden"` (история не теряется).
+4. Для полного пересбора рекомендуется запустить скан заново — вакансии, которые не прошли фильтр при прошлом сканировании, в storage не попали.
+
+### URL поиска per-profile (v1.2)
+
+Каждый профиль хранит свой URL поиска hh.ru в `settings.profileUrls`:
+
+- **fullstack** — по умолчанию: `text=TypeScript+OR+React+OR+Node.js+OR+Next.js+OR+разработчик&employment=project&schedule=remote`.
+- **devops** — по умолчанию: `text=devops+OR+системный+администратор+OR+системный+инженер&area=1&schedule=remote`.
+
+В Settings (⚙️) есть блок **«URL поиска hh.ru для активного профиля»** — textarea с URL текущего профиля и кнопка «Сохранить URL». При переключении профиля URL обновляется автоматически (`targetUrl = profileUrls[activeProfile]`).
+
+Миграция со старых версий расширения: если в `chrome.storage.local` лежит `settings` без `profileUrls`, прежний `targetUrl` копируется в `profileUrls[activeProfile]`, остальные профили получают дефолты (см. `DEFAULT_PROFILE_URLS` в [src/shared/storage.ts](src/shared/storage.ts)).
 
 ### Файлы для support
 
 - `src/shared/resume-parser.ts` — парсер профилей с predefined конфигами
 - `src/shared/constants.ts` — `FULLSTACK_SCORING`, `DEVOPS_SCORING`, `getScoringConfigByProfile()`
+- `src/shared/storage.ts` — `DEFAULT_PROFILE_URLS`, `AppSettings.profileUrls`, миграция settings
 - `src/shared/types.ts` — `ProfileType = 'fullstack' | 'devops'`
-- `src/dashboard/components/ScoringSettings.tsx` — UI для выбора профиля
+- `src/dashboard/store/useStore.ts` — `setActiveProfile` (пересчёт + смена URL), `updateProfileUrl`
+- `src/dashboard/components/ScoringSettings.tsx` — UI выбора профиля + редактор URL
 
 ## Артефакты
 

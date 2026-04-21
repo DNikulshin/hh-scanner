@@ -8,3 +8,9 @@ dist/
 .env
 .env.*
 !.env.example
+
+# build artefacts / archives
+*.zip
+
+# external reference repos (unpacked here for study, not part of this project)
+scan-agent-main/
