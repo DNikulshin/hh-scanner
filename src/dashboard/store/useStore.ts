@@ -1,20 +1,27 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   scoringStorage,
   vacanciesStorage,
   progressStorage,
   settingsStorage,
   type AppSettings,
-} from '@shared/storage';
-import { STORAGE_KEY_PROGRESS, STORAGE_KEY_VACANCIES } from '@shared/constants';
-import type { Vacancy, ScoringConfig, ScanProgress, VacancyStatus } from '@shared/types';
+} from "@shared/storage";
+import { getScoringConfigByProfile } from "@shared/constants";
+import { STORAGE_KEY_PROGRESS, STORAGE_KEY_VACANCIES } from "@shared/constants";
+import type {
+  Vacancy,
+  ScoringConfig,
+  ScanProgress,
+  VacancyStatus,
+  ProfileType,
+} from "@shared/types";
 
 // ============================================================
 // DASHBOARD STORE (Zustand)
 // ============================================================
 
-export type StatusFilter = 'all' | 'new' | 'liked' | 'applied' | 'hidden';
-export type SortMode = 'score' | 'salary' | 'rating' | 'recent';
+export type StatusFilter = "all" | "new" | "liked" | "applied" | "hidden";
+export type SortMode = "score" | "salary" | "rating" | "recent";
 
 interface DashboardState {
   // Data
@@ -37,6 +44,7 @@ interface DashboardState {
   updateStatus: (id: string, status: VacancyStatus) => Promise<void>;
   updateScoring: (scoring: ScoringConfig) => Promise<void>;
   resetScoring: () => Promise<void>;
+  setActiveProfile: (profile: ProfileType) => Promise<void>;
   clearAll: () => Promise<void>;
 
   setStatusFilter: (f: StatusFilter) => void;
@@ -52,9 +60,9 @@ export const useStore = create<DashboardState>((set, get) => ({
   progress: null,
   settings: null,
 
-  statusFilter: 'all',
-  sortMode: 'score',
-  searchQuery: '',
+  statusFilter: "all",
+  sortMode: "score",
+  searchQuery: "",
   minSalary: 0,
   showSettings: false,
 
@@ -69,7 +77,7 @@ export const useStore = create<DashboardState>((set, get) => ({
 
     // Subscribe to storage changes — обновляемся в реальном времени во время скана
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local') return;
+      if (area !== "local") return;
       if (changes[STORAGE_KEY_VACANCIES]) {
         set({ vacancies: changes[STORAGE_KEY_VACANCIES].newValue ?? [] });
       }
@@ -82,11 +90,14 @@ export const useStore = create<DashboardState>((set, get) => ({
   async startScan() {
     const { settings } = get();
     if (!settings) return;
-    await chrome.runtime.sendMessage({ type: 'SCAN_START', url: settings.targetUrl });
+    await chrome.runtime.sendMessage({
+      type: "SCAN_START",
+      url: settings.targetUrl,
+    });
   },
 
   async stopScan() {
-    await chrome.runtime.sendMessage({ type: 'SCAN_STOP' });
+    await chrome.runtime.sendMessage({ type: "SCAN_STOP" });
   },
 
   async updateStatus(id, status) {
@@ -103,6 +114,17 @@ export const useStore = create<DashboardState>((set, get) => ({
     await scoringStorage.reset();
     const scoring = await scoringStorage.get();
     set({ scoring });
+  },
+
+  async setActiveProfile(profile: ProfileType) {
+    const current = await settingsStorage.get();
+    const updated = { ...current, activeProfile: profile };
+    await settingsStorage.set(updated);
+    set({ settings: updated });
+
+    // Пересчитываем скоринг для всех вакансий с новым профилем
+    const config = getScoringConfigByProfile(profile);
+    set({ scoring: config });
   },
 
   async clearAll() {
@@ -126,19 +148,19 @@ function salaryToMonthlyRub(v: Vacancy): number {
   if (!amount) return 0;
 
   // Простое приведение в RUB/месяц для сортировки
-  const rate = currency === 'USD' ? 90 : currency === 'EUR' ? 100 : 1;
-  const multiplier = period === 'hour' ? 160 : period === 'project' ? 1 : 1;
+  const rate = currency === "USD" ? 90 : currency === "EUR" ? 100 : 1;
+  const multiplier = period === "hour" ? 160 : period === "project" ? 1 : 1;
   return amount * rate * multiplier;
 }
 
 export function selectVisibleVacancies(state: DashboardState): Vacancy[] {
   let list = state.vacancies.filter((v) => !v.excluded);
 
-  if (state.statusFilter !== 'all') {
+  if (state.statusFilter !== "all") {
     list = list.filter((v) => v.status === state.statusFilter);
   } else {
     // По умолчанию скрываем "hidden"
-    list = list.filter((v) => v.status !== 'hidden');
+    list = list.filter((v) => v.status !== "hidden");
   }
 
   if (state.searchQuery.trim()) {
@@ -146,8 +168,8 @@ export function selectVisibleVacancies(state: DashboardState): Vacancy[] {
     list = list.filter(
       (v) =>
         v.title.toLowerCase().includes(q) ||
-        (v.employer ?? '').toLowerCase().includes(q) ||
-        v.tags.toLowerCase().includes(q)
+        (v.employer ?? "").toLowerCase().includes(q) ||
+        v.tags.toLowerCase().includes(q),
     );
   }
 
@@ -157,13 +179,13 @@ export function selectVisibleVacancies(state: DashboardState): Vacancy[] {
 
   list = [...list].sort((a, b) => {
     switch (state.sortMode) {
-      case 'score':
+      case "score":
         return b.score - a.score;
-      case 'salary':
+      case "salary":
         return salaryToMonthlyRub(b) - salaryToMonthlyRub(a);
-      case 'rating':
+      case "rating":
         return (b.rating ?? 0) - (a.rating ?? 0);
-      case 'recent':
+      case "recent":
         return new Date(b.parsedAt).getTime() - new Date(a.parsedAt).getTime();
     }
   });

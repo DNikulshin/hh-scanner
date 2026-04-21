@@ -1,22 +1,23 @@
-import { useState, useEffect } from 'react';
-import { useStore } from '../store/useStore';
-import type { ScoringConfig, ScoringGroup } from '@shared/types';
-import clsx from 'clsx';
+import { useState, useEffect } from "react";
+import { useStore } from "../store/useStore";
+import { getAllProfiles } from "@shared/resume-parser";
+import type { ScoringConfig, ScoringGroup, ProfileType } from "@shared/types";
+import clsx from "clsx";
 
 interface GroupEditorProps {
-  groupKey: keyof Omit<ScoringConfig, 'hardExclude' | 'minScore'>;
+  groupKey: keyof Omit<ScoringConfig, "hardExclude" | "minScore">;
   group: ScoringGroup;
   onChange: (group: ScoringGroup) => void;
 }
 
 function GroupEditor({ group, onChange }: GroupEditorProps) {
-  const [kwInput, setKwInput] = useState('');
+  const [kwInput, setKwInput] = useState("");
 
   const addKeyword = () => {
     const kw = kwInput.trim().toLowerCase();
     if (!kw || group.keywords.includes(kw)) return;
     onChange({ ...group, keywords: [...group.keywords, kw] });
-    setKwInput('');
+    setKwInput("");
   };
 
   const removeKeyword = (kw: string) => {
@@ -32,7 +33,9 @@ function GroupEditor({ group, onChange }: GroupEditorProps) {
           <input
             type="number"
             value={group.weight}
-            onChange={(e) => onChange({ ...group, weight: parseInt(e.target.value, 10) || 0 })}
+            onChange={(e) =>
+              onChange({ ...group, weight: parseInt(e.target.value, 10) || 0 })
+            }
             className="w-20 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-center text-zinc-100 focus:border-brand-600 focus:outline-none"
           />
         </label>
@@ -61,7 +64,7 @@ function GroupEditor({ group, onChange }: GroupEditorProps) {
           type="text"
           value={kwInput}
           onChange={(e) => setKwInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addKeyword()}
+          onKeyDown={(e) => e.key === "Enter" && addKeyword()}
           placeholder="Добавить ключевик…"
           className="flex-1 rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 focus:border-brand-600 focus:outline-none"
         />
@@ -78,13 +81,15 @@ function GroupEditor({ group, onChange }: GroupEditorProps) {
 
 export function ScoringSettings() {
   const scoring = useStore((s) => s.scoring);
+  const settings = useStore((s) => s.settings);
   const updateScoring = useStore((s) => s.updateScoring);
   const resetScoring = useStore((s) => s.resetScoring);
+  const setActiveProfile = useStore((s) => s.setActiveProfile);
   const showSettings = useStore((s) => s.showSettings);
   const setShowSettings = useStore((s) => s.setShowSettings);
 
   const [draft, setDraft] = useState<ScoringConfig | null>(null);
-  const [excludeInput, setExcludeInput] = useState('');
+  const [excludeInput, setExcludeInput] = useState("");
 
   useEffect(() => {
     if (scoring) setDraft(structuredClone(scoring));
@@ -92,7 +97,8 @@ export function ScoringSettings() {
 
   if (!showSettings || !draft) return null;
 
-  const setGroup = (key: keyof Omit<ScoringConfig, 'hardExclude' | 'minScore'>) =>
+  const setGroup =
+    (key: keyof Omit<ScoringConfig, "hardExclude" | "minScore">) =>
     (group: ScoringGroup) =>
       setDraft({ ...draft, [key]: group });
 
@@ -100,11 +106,14 @@ export function ScoringSettings() {
     const kw = excludeInput.trim().toLowerCase();
     if (!kw || draft.hardExclude.includes(kw)) return;
     setDraft({ ...draft, hardExclude: [...draft.hardExclude, kw] });
-    setExcludeInput('');
+    setExcludeInput("");
   };
 
   const removeExclude = (kw: string) => {
-    setDraft({ ...draft, hardExclude: draft.hardExclude.filter((k) => k !== kw) });
+    setDraft({
+      ...draft,
+      hardExclude: draft.hardExclude.filter((k) => k !== kw),
+    });
   };
 
   const save = async () => {
@@ -113,18 +122,27 @@ export function ScoringSettings() {
   };
 
   const reset = async () => {
-    if (!confirm('Сбросить все настройки скоринга к дефолтным?')) return;
+    if (!confirm("Сбросить все настройки скоринга к дефолтным?")) return;
     await resetScoring();
   };
+
+  const handleProfileChange = async (profile: ProfileType) => {
+    await setActiveProfile(profile);
+  };
+
+  const profiles = getAllProfiles();
+  const activeProfile = settings?.activeProfile ?? "fullstack";
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 py-10 backdrop-blur-sm">
       <div className="w-full max-w-3xl space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
         <header className="flex items-center justify-between border-b border-zinc-800 pb-4">
           <div>
-            <h2 className="text-xl font-bold text-zinc-100">Настройка скоринга</h2>
+            <h2 className="text-xl font-bold text-zinc-100">
+              Настройка скоринга
+            </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Ключевые слова с весами. Скор считается по совпадениям в заголовке и тегах.
+              Выберите профиль резюме и настройте ключевые слова.
             </p>
           </div>
           <button
@@ -136,18 +154,66 @@ export function ScoringSettings() {
           </button>
         </header>
 
+        {/* Profile selector */}
+        <div className="rounded-lg border border-brand-900/40 bg-brand-950/20 p-4">
+          <h3 className="mb-3 text-sm font-semibold text-brand-200">
+            Выберите профиль резюме:
+          </h3>
+          <div className="grid gap-2">
+            {profiles.map((profile) => (
+              <button
+                key={profile.type}
+                onClick={() => handleProfileChange(profile.type)}
+                className={clsx(
+                  "rounded-lg border-2 px-4 py-3 text-left transition-colors",
+                  activeProfile === profile.type
+                    ? "border-brand-600 bg-brand-600/20 text-brand-100"
+                    : "border-zinc-700 bg-zinc-900/40 text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/60",
+                )}
+              >
+                <div className="font-semibold">{profile.title}</div>
+                <div className="text-xs text-zinc-400">
+                  {profile.description}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-3">
-          <GroupEditor groupKey="core"          group={draft.core}          onChange={setGroup('core')} />
-          <GroupEditor groupKey="related"       group={draft.related}       onChange={setGroup('related')} />
-          <GroupEditor groupKey="nice"          group={draft.nice}          onChange={setGroup('nice')} />
-          <GroupEditor groupKey="levelPenalty"  group={draft.levelPenalty}  onChange={setGroup('levelPenalty')} />
-          <GroupEditor groupKey="seniorPenalty" group={draft.seniorPenalty} onChange={setGroup('seniorPenalty')} />
+          <GroupEditor
+            groupKey="core"
+            group={draft.core}
+            onChange={setGroup("core")}
+          />
+          <GroupEditor
+            groupKey="related"
+            group={draft.related}
+            onChange={setGroup("related")}
+          />
+          <GroupEditor
+            groupKey="nice"
+            group={draft.nice}
+            onChange={setGroup("nice")}
+          />
+          <GroupEditor
+            groupKey="levelPenalty"
+            group={draft.levelPenalty}
+            onChange={setGroup("levelPenalty")}
+          />
+          <GroupEditor
+            groupKey="seniorPenalty"
+            group={draft.seniorPenalty}
+            onChange={setGroup("seniorPenalty")}
+          />
 
           {/* Hard exclude */}
           <div className="space-y-3 rounded-lg border border-rose-900/40 bg-rose-950/20 p-4">
             <div className="flex items-center justify-between">
               <h4 className="font-medium text-rose-200">Жёсткие исключения</h4>
-              <span className="text-xs text-rose-300/70">score = −999, вакансия скрывается</span>
+              <span className="text-xs text-rose-300/70">
+                score = −999, вакансия скрывается
+              </span>
             </div>
 
             <div className="flex flex-wrap gap-1.5">
@@ -172,7 +238,7 @@ export function ScoringSettings() {
                 type="text"
                 value={excludeInput}
                 onChange={(e) => setExcludeInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addExclude()}
+                onKeyDown={(e) => e.key === "Enter" && addExclude()}
                 placeholder="Слово-исключение…"
                 className="flex-1 rounded border border-rose-900/40 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 focus:border-rose-600 focus:outline-none"
               />
@@ -197,7 +263,12 @@ export function ScoringSettings() {
               <input
                 type="number"
                 value={draft.minScore}
-                onChange={(e) => setDraft({ ...draft, minScore: parseInt(e.target.value, 10) || 0 })}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    minScore: parseInt(e.target.value, 10) || 0,
+                  })
+                }
                 className="w-24 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-center text-zinc-100 focus:border-brand-600 focus:outline-none"
               />
             </label>
@@ -216,8 +287,8 @@ export function ScoringSettings() {
             <button
               onClick={() => setShowSettings(false)}
               className={clsx(
-                'rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300',
-                'hover:bg-zinc-800'
+                "rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300",
+                "hover:bg-zinc-800",
               )}
             >
               Отмена
