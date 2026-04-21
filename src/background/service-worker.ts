@@ -1,19 +1,19 @@
 import {
-  scoringStorage,
   vacanciesStorage,
   progressStorage,
   settingsStorage,
-} from '@shared/storage';
-import { scoreVacancy } from '@shared/scoring';
-import { buildPageUrl } from '@shared/parser';
-import type { Message, Vacancy, RawVacancy, ScanProgress } from '@shared/types';
+} from "@shared/storage";
+import { scoreVacancyWithProfile } from "@shared/scoring";
+import { getScoringConfigByProfile } from "@shared/constants";
+import { buildPageUrl } from "@shared/parser";
+import type { Message, Vacancy, RawVacancy, ScanProgress } from "@shared/types";
 
 // ============================================================
 // BACKGROUND SERVICE WORKER
 // Управляет многостраничным сканированием.
 // ============================================================
 
-console.log('[HH Scanner] Background service worker started');
+console.log("[HH Scanner] Background service worker started");
 
 // Состояние активного скана
 interface ScanState {
@@ -27,7 +27,7 @@ interface ScanState {
 let scanState: ScanState = {
   active: false,
   tabId: null,
-  baseUrl: '',
+  baseUrl: "",
   currentPage: 0,
   totalPages: 0,
 };
@@ -35,13 +35,13 @@ let scanState: ScanState = {
 // ---------- Клик по иконке расширения открывает dashboard ----------
 // (popup при этом всё равно показывается — это быстрые действия)
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[HH Scanner] Extension installed');
+  console.log("[HH Scanner] Extension installed");
   openDashboard();
 });
 
 // ---------- Открытие dashboard-страницы ----------
 async function openDashboard() {
-  const url = chrome.runtime.getURL('src/dashboard/index.html');
+  const url = chrome.runtime.getURL("src/dashboard/index.html");
   const existing = await chrome.tabs.query({ url });
 
   if (existing.length > 0 && existing[0].id) {
@@ -57,13 +57,13 @@ async function openDashboard() {
 // ---------- Основной цикл сканирования ----------
 async function startScan(url: string): Promise<void> {
   if (scanState.active) {
-    console.warn('[HH Scanner] Scan already active');
+    console.warn("[HH Scanner] Scan already active");
     return;
   }
 
   const parsedUrl = new URL(url);
-  parsedUrl.searchParams.delete('page');
-  parsedUrl.searchParams.delete('search_session_id');
+  parsedUrl.searchParams.delete("page");
+  parsedUrl.searchParams.delete("search_session_id");
 
   scanState = {
     active: true,
@@ -74,7 +74,7 @@ async function startScan(url: string): Promise<void> {
   };
 
   await progressStorage.set({
-    status: 'scanning',
+    status: "scanning",
     currentPage: 0,
     totalPages: 0,
     totalVacancies: 0,
@@ -99,9 +99,9 @@ async function stopScan(reason?: string): Promise<void> {
   const progress = await progressStorage.get();
   await progressStorage.set({
     ...progress,
-    status: reason === 'error' ? 'error' : 'done',
+    status: reason === "error" ? "error" : "done",
     finishedAt: new Date().toISOString(),
-    error: reason === 'error' ? 'Scan failed' : undefined,
+    error: reason === "error" ? "Scan failed" : undefined,
   });
 
   if (scanState.tabId !== null) {
@@ -115,12 +115,12 @@ async function stopScan(reason?: string): Promise<void> {
   scanState = {
     active: false,
     tabId: null,
-    baseUrl: '',
+    baseUrl: "",
     currentPage: 0,
     totalPages: 0,
   };
 
-  console.log('[HH Scanner] Scan finished', reason ?? 'done');
+  console.log("[HH Scanner] Scan finished", reason ?? "done");
 }
 
 // ---------- Обработка результата парсинга страницы ----------
@@ -134,13 +134,17 @@ async function handleParseResult(payload: {
   // (ручной режим: пользователь просто открыл hh.ru)
   const isPassive = !scanState.active;
 
-  const scoring = await scoringStorage.get();
+  const settings = await settingsStorage.get();
+  const config = getScoringConfigByProfile(settings.activeProfile);
+
   const scored: Vacancy[] = payload.vacancies.map((raw) => ({
-    ...scoreVacancy(raw, scoring),
-    status: 'new',
+    ...scoreVacancyWithProfile(raw, settings.activeProfile),
+    status: "new",
   }));
 
-  const relevant = scored.filter((v) => !v.excluded && v.score >= scoring.minScore);
+  const relevant = scored.filter(
+    (v) => !v.excluded && v.score >= config.minScore,
+  );
   await vacanciesStorage.upsert(relevant);
 
   const prev = await progressStorage.get();
@@ -150,12 +154,13 @@ async function handleParseResult(payload: {
     totalPages: payload.totalPages,
     totalVacancies: (prev.totalVacancies ?? 0) + payload.vacancies.length,
     relevantCount: (prev.relevantCount ?? 0) + relevant.length,
-    excludedCount: (prev.excludedCount ?? 0) + scored.filter((v) => v.excluded).length,
+    excludedCount:
+      (prev.excludedCount ?? 0) + scored.filter((v) => v.excluded).length,
   };
   await progressStorage.set(nextProgress);
 
   console.log(
-    `[HH Scanner] Page ${payload.page}/${payload.totalPages - 1}: ${relevant.length} relevant / ${payload.vacancies.length} total`
+    `[HH Scanner] Page ${payload.page}/${payload.totalPages - 1}: ${relevant.length} relevant / ${payload.vacancies.length} total`,
   );
 
   if (isPassive) return;
@@ -170,7 +175,6 @@ async function handleParseResult(payload: {
   }
 
   // Переход на следующую страницу с задержкой
-  const settings = await settingsStorage.get();
   setTimeout(async () => {
     if (!scanState.active || scanState.tabId === null) return;
 
@@ -179,8 +183,8 @@ async function handleParseResult(payload: {
       await chrome.tabs.update(scanState.tabId, { url: nextUrl });
       scanState.currentPage = nextPage;
     } catch (e) {
-      console.error('[HH Scanner] Failed to navigate', e);
-      await stopScan('error');
+      console.error("[HH Scanner] Failed to navigate", e);
+      await stopScan("error");
     }
   }, settings.scanDelayMs);
 }
@@ -189,27 +193,27 @@ async function handleParseResult(payload: {
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   (async () => {
     switch (msg.type) {
-      case 'SCAN_START':
+      case "SCAN_START":
         await startScan(msg.url);
         sendResponse({ ok: true });
         break;
 
-      case 'SCAN_STOP':
+      case "SCAN_STOP":
         await stopScan();
         sendResponse({ ok: true });
         break;
 
-      case 'PARSE_RESULT':
+      case "PARSE_RESULT":
         await handleParseResult(msg.payload);
         sendResponse({ ok: true });
         break;
 
-      case 'OPEN_DASHBOARD':
+      case "OPEN_DASHBOARD":
         await openDashboard();
         sendResponse({ ok: true });
         break;
 
-      case 'GET_STATE':
+      case "GET_STATE":
         sendResponse({
           scanState,
           progress: await progressStorage.get(),

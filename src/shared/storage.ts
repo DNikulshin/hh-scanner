@@ -4,8 +4,13 @@ import {
   STORAGE_KEY_PROGRESS,
   STORAGE_KEY_SETTINGS,
   DEFAULT_SCORING,
-} from './constants';
-import type { ScoringConfig, Vacancy, ScanProgress } from './types';
+} from "./constants";
+import type {
+  ScoringConfig,
+  Vacancy,
+  ScanProgress,
+  ProfileType,
+} from "./types";
 
 // ============================================================
 // TYPED CHROME STORAGE WRAPPER
@@ -15,13 +20,15 @@ export interface AppSettings {
   targetUrl: string;
   autoOpenDashboard: boolean;
   scanDelayMs: number;
+  activeProfile: ProfileType;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   targetUrl:
-    'https://hh.ru/search/vacancy?employment=project&schedule=remote&text=TypeScript+OR+React+OR+Node.js+OR+Next.js+OR+разработчик',
+    "https://hh.ru/search/vacancy?employment=project&schedule=remote&text=TypeScript+OR+React+OR+Node.js+OR+Next.js+OR+разработчик",
   autoOpenDashboard: true,
   scanDelayMs: 1500,
+  activeProfile: "fullstack",
 };
 
 async function get<T>(key: string, fallback: T): Promise<T> {
@@ -64,7 +71,10 @@ export const vacanciesStorage = {
     return merged;
   },
 
-  async updateStatus(id: string, status: Vacancy['status']): Promise<Vacancy[]> {
+  async updateStatus(
+    id: string,
+    status: Vacancy["status"],
+  ): Promise<Vacancy[]> {
     const list = await get<Vacancy[]>(STORAGE_KEY_VACANCIES, []);
     const next = list.map((v) => (v.id === id ? { ...v, status } : v));
     await set(STORAGE_KEY_VACANCIES, next);
@@ -78,7 +88,7 @@ export const vacanciesStorage = {
 
 // ---------- Scan progress ----------
 const DEFAULT_PROGRESS: ScanProgress = {
-  status: 'idle',
+  status: "idle",
   currentPage: 0,
   totalPages: 0,
   totalVacancies: 0,
