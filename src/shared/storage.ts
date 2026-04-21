@@ -18,14 +18,22 @@ import type {
 
 export interface AppSettings {
   targetUrl: string;
+  profileUrls: Record<ProfileType, string>;
   autoOpenDashboard: boolean;
   scanDelayMs: number;
   activeProfile: ProfileType;
 }
 
+export const DEFAULT_PROFILE_URLS: Record<ProfileType, string> = {
+  fullstack:
+    "https://hh.ru/search/vacancy?employment=project&schedule=remote&text=TypeScript+OR+React+OR+Node.js+OR+Next.js+OR+разработчик&order_by=publication_time",
+  devops:
+    "https://hh.ru/search/vacancy?text=devops+OR+системный+администратор+OR+системный+инженер&area=1&schedule=remote&order_by=publication_time",
+};
+
 const DEFAULT_SETTINGS: AppSettings = {
-  targetUrl:
-    "https://hh.ru/search/vacancy?employment=project&schedule=remote&text=TypeScript+OR+React+OR+Node.js+OR+Next.js+OR+разработчик",
+  targetUrl: DEFAULT_PROFILE_URLS.fullstack,
+  profileUrls: DEFAULT_PROFILE_URLS,
   autoOpenDashboard: true,
   scanDelayMs: 1500,
   activeProfile: "fullstack",
@@ -106,6 +114,29 @@ export const progressStorage = {
 
 // ---------- Settings ----------
 export const settingsStorage = {
-  get: () => get<AppSettings>(STORAGE_KEY_SETTINGS, DEFAULT_SETTINGS),
+  async get(): Promise<AppSettings> {
+    const raw = await get<Partial<AppSettings>>(
+      STORAGE_KEY_SETTINGS,
+      DEFAULT_SETTINGS,
+    );
+    // Миграция со старых версий: поля могут отсутствовать,
+    // profileUrls дособираем из activeProfile + targetUrl.
+    const activeProfile = raw.activeProfile ?? DEFAULT_SETTINGS.activeProfile;
+    const profileUrls: Record<ProfileType, string> = {
+      ...DEFAULT_PROFILE_URLS,
+      ...(raw.profileUrls ?? {}),
+    };
+    if (raw.targetUrl && !raw.profileUrls) {
+      profileUrls[activeProfile] = raw.targetUrl;
+    }
+    return {
+      targetUrl: profileUrls[activeProfile],
+      profileUrls,
+      autoOpenDashboard:
+        raw.autoOpenDashboard ?? DEFAULT_SETTINGS.autoOpenDashboard,
+      scanDelayMs: raw.scanDelayMs ?? DEFAULT_SETTINGS.scanDelayMs,
+      activeProfile,
+    };
+  },
   set: (settings: AppSettings) => set(STORAGE_KEY_SETTINGS, settings),
 };

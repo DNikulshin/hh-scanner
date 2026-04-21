@@ -6,8 +6,14 @@ import {
   settingsStorage,
   type AppSettings,
 } from "@shared/storage";
-import { getScoringConfigByProfile } from "@shared/constants";
-import { STORAGE_KEY_PROGRESS, STORAGE_KEY_VACANCIES } from "@shared/constants";
+import {
+  getScoringConfigByProfile,
+  STORAGE_KEY_PROGRESS,
+  STORAGE_KEY_VACANCIES,
+  STORAGE_KEY_SETTINGS,
+  STORAGE_KEY_SCORING,
+} from "@shared/constants";
+import { scoreVacancyWithProfile } from "@shared/scoring";
 import type {
   Vacancy,
   ScoringConfig,
@@ -45,6 +51,7 @@ interface DashboardState {
   updateScoring: (scoring: ScoringConfig) => Promise<void>;
   resetScoring: () => Promise<void>;
   setActiveProfile: (profile: ProfileType) => Promise<void>;
+  updateProfileUrl: (profile: ProfileType, url: string) => Promise<void>;
   clearAll: () => Promise<void>;
 
   setStatusFilter: (f: StatusFilter) => void;
@@ -84,6 +91,12 @@ export const useStore = create<DashboardState>((set, get) => ({
       if (changes[STORAGE_KEY_PROGRESS]) {
         set({ progress: changes[STORAGE_KEY_PROGRESS].newValue });
       }
+      if (changes[STORAGE_KEY_SETTINGS]) {
+        set({ settings: changes[STORAGE_KEY_SETTINGS].newValue });
+      }
+      if (changes[STORAGE_KEY_SCORING]) {
+        set({ scoring: changes[STORAGE_KEY_SCORING].newValue });
+      }
     });
   },
 
@@ -118,13 +131,48 @@ export const useStore = create<DashboardState>((set, get) => ({
 
   async setActiveProfile(profile: ProfileType) {
     const current = await settingsStorage.get();
-    const updated = { ...current, activeProfile: profile };
+    const updated: AppSettings = {
+      ...current,
+      activeProfile: profile,
+      targetUrl: current.profileUrls[profile],
+    };
+    await settingsStorage.set(updated);
+
+    const config = getScoringConfigByProfile(profile);
+    await scoringStorage.set(config);
+
+    // Пересчитываем скоринг для уже сохранённых вакансий под новый профиль.
+    // Прячем те, что стали excluded или упали ниже minScore, помечая их как hidden,
+    // чтобы история не терялась, но из списка по умолчанию они ушли.
+    const existing = await vacanciesStorage.get();
+    const rescored: Vacancy[] = existing.map((v) => {
+      const result = scoreVacancyWithProfile(v, profile);
+      const stillRelevant = !result.excluded && result.score >= config.minScore;
+      return {
+        ...v,
+        score: result.score,
+        matches: result.matches,
+        excluded: result.excluded,
+        status: stillRelevant ? v.status : "hidden",
+      };
+    });
+    await vacanciesStorage.set(rescored);
+
+    set({ settings: updated, scoring: config, vacancies: rescored });
+  },
+
+  async updateProfileUrl(profile: ProfileType, url: string) {
+    const current = await settingsStorage.get();
+    const profileUrls = { ...current.profileUrls, [profile]: url };
+    const updated: AppSettings = {
+      ...current,
+      profileUrls,
+      // Если редактируем URL активного профиля — синхронизируем targetUrl.
+      targetUrl:
+        profile === current.activeProfile ? url : current.targetUrl,
+    };
     await settingsStorage.set(updated);
     set({ settings: updated });
-
-    // Пересчитываем скоринг для всех вакансий с новым профилем
-    const config = getScoringConfigByProfile(profile);
-    set({ scoring: config });
   },
 
   async clearAll() {

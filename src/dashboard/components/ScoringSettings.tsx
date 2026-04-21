@@ -85,15 +85,31 @@ export function ScoringSettings() {
   const updateScoring = useStore((s) => s.updateScoring);
   const resetScoring = useStore((s) => s.resetScoring);
   const setActiveProfile = useStore((s) => s.setActiveProfile);
+  const updateProfileUrl = useStore((s) => s.updateProfileUrl);
   const showSettings = useStore((s) => s.showSettings);
   const setShowSettings = useStore((s) => s.setShowSettings);
 
   const [draft, setDraft] = useState<ScoringConfig | null>(null);
   const [excludeInput, setExcludeInput] = useState("");
+  const [urlDraft, setUrlDraft] = useState<string>("");
 
   useEffect(() => {
     if (scoring) setDraft(structuredClone(scoring));
   }, [scoring]);
+
+  const activeProfile = settings?.activeProfile ?? "fullstack";
+  const currentProfileUrl = settings?.profileUrls?.[activeProfile] ?? "";
+
+  useEffect(() => {
+    setUrlDraft(currentProfileUrl);
+  }, [currentProfileUrl]);
+
+  const saveUrl = async () => {
+    if (!settings) return;
+    const trimmed = urlDraft.trim();
+    if (!trimmed || trimmed === currentProfileUrl) return;
+    await updateProfileUrl(activeProfile, trimmed);
+  };
 
   if (!showSettings || !draft) return null;
 
@@ -131,7 +147,6 @@ export function ScoringSettings() {
   };
 
   const profiles = getAllProfiles();
-  const activeProfile = settings?.activeProfile ?? "fullstack";
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 py-10 backdrop-blur-sm">
@@ -178,6 +193,35 @@ export function ScoringSettings() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* URL поиска для активного профиля */}
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-zinc-200">
+              URL поиска hh.ru для активного профиля
+            </h3>
+            <button
+              onClick={saveUrl}
+              disabled={
+                !urlDraft.trim() || urlDraft.trim() === currentProfileUrl
+              }
+              className="rounded bg-brand-600 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-500"
+            >
+              Сохранить URL
+            </button>
+          </div>
+          <textarea
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            rows={2}
+            placeholder="https://hh.ru/search/vacancy?text=..."
+            className="w-full resize-y rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:border-brand-600 focus:outline-none"
+          />
+          <p className="mt-1.5 text-xs text-zinc-500">
+            Открой нужный поиск на hh.ru, скопируй URL из адресной строки и
+            вставь сюда. При переключении профиля URL подставляется автоматически.
+          </p>
         </div>
 
         <div className="space-y-3">
