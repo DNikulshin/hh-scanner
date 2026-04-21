@@ -1,4 +1,5 @@
-import type { ScoringConfig } from './types';
+import type { ScoringConfig, ProfileType } from "./types";
+import { getScoringConfigByProfile } from "./constants";
 
 // ============================================================
 // SCORING ENGINE
@@ -13,7 +14,7 @@ export interface ScoreResult {
 export function calcScore(
   title: string,
   tags: string,
-  config: ScoringConfig
+  config: ScoringConfig,
 ): ScoreResult {
   const text = `${title} ${tags}`.toLowerCase();
 
@@ -37,7 +38,7 @@ export function calcScore(
     for (const kw of group.keywords) {
       if (text.includes(kw)) {
         score += group.weight;
-        const sign = group.weight > 0 ? '+' : '';
+        const sign = group.weight > 0 ? "+" : "";
         matches.push(`${group.label}:${kw.trim()}(${sign}${group.weight})`);
       }
     }
@@ -48,8 +49,18 @@ export function calcScore(
 
 export function scoreVacancy<T extends { title: string; tags: string }>(
   raw: T,
-  config: ScoringConfig
+  config: ScoringConfig,
 ): T & ScoreResult {
   const result = calcScore(raw.title, raw.tags, config);
   return { ...raw, ...result };
+}
+
+/**
+ * Скоринг вакансии с выбором профиля
+ */
+export function scoreVacancyWithProfile<
+  T extends { title: string; tags: string },
+>(raw: T, profileType: ProfileType): T & ScoreResult {
+  const config = getScoringConfigByProfile(profileType);
+  return scoreVacancy(raw, config);
 }
