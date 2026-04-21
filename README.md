@@ -44,6 +44,31 @@
 - **Zustand** — state management
 - **Manifest V3** — современный Chrome API
 
+## Профили резюме (Multi-Profile Support)
+
+Расширение поддерживает **2 готовых профиля** с разными стеками:
+
+### 1️⃣ Fullstack Developer (Middle+)
+- **Core (+10):** TypeScript, React, Next.js, Node.js, NestJS, Fullstack
+- **Related (+5):** Prisma, PostgreSQL, Docker, CI/CD, Redis, WebSocket
+- **Nice (+2):** Tailwind, Monorepo, TanStack Query, Caddy
+
+📄 Справка: [rezume_fullstack-developer.txt](rezume_fullstack-developer.txt)
+
+### 2️⃣ DevOps / System Engineer
+- **Core (+10):** PowerShell, Active Directory, Linux, Docker, DevOps, Kubernetes
+- **Related (+5):** Windows Server, Bash, Terraform, Ansible, Zabbix, Prometheus
+- **Nice (+2):** OpenStack, SSL/TLS, Nginx, HAProxy
+
+📄 Справка: [rezume_admin-devops.txt](rezume_admin-devops.txt)
+
+### Как переключаться
+
+1. Dashboard → ⚙ **Settings**
+2. Выбрать профиль: **Fullstack** или **DevOps**
+3. Конфиг скорирования обновится моментально
+4. При новом сканировании вакансии пересчитаются по новому профилю
+
 ## Структура проекта
 
 ```
@@ -97,7 +122,14 @@ npm run build
 **Через Dashboard:**
 - Таблица всех вакансий с оценками
 - Фильтры: статус / поиск / мин. зарплата / сортировка
-- Клик на ⚙ **Скоринг** — редактор весов и ключевых слов
+- ⚙ **Settings** — выбор профиля и редактор весов ключевых слов
+
+**Выбор профиля:**
+1. Открой Dashboard
+2. Нажми ⚙ **Settings** → модалка "Настройка скоринга"
+3. Выбери: **Fullstack Developer** или **DevOps / System Engineer**
+4. Профиль сохранится → все вакансии пересчитаются
+5. При новом сканировании используется выбранный профиль
 - ⇣ **Экспорт** → JSON файл
 
 ## Dev-режим
@@ -152,6 +184,64 @@ MV3 service worker может уснуть — просто кликни по и
 - [ ] Trend analysis — график появления новых вакансий по дням
 - [ ] Уведомления о новых релевантных вакансиях (cron-скан)
 - [ ] Импорт профиля с резюме PDF для авто-настройки скоринга
+
+## Контекст для разработчиков (Claude & Copilot)
+
+### Ключевые файлы для понимания проекта
+
+1. **[src/shared/resume-parser.ts](src/shared/resume-parser.ts)** — Профили резюме (FULLSTACK_PROFILE, DEVOPS_PROFILE)
+2. **[src/shared/constants.ts](src/shared/constants.ts)** — Конфиги скорирования (FULLSTACK_SCORING, DEVOPS_SCORING, getScoringConfigByProfile)
+3. **[src/shared/types.ts](src/shared/types.ts)** — Типы (Vacancy, ScoringConfig, ProfileType = 'fullstack' | 'devops')
+4. **[src/shared/storage.ts](src/shared/storage.ts)** — Типизированная обёртка chrome.storage.local (AppSettings.activeProfile)
+5. **[src/background/service-worker.ts](src/background/service-worker.ts)** — Оркестратор сканирования (использует activeProfile)
+6. **[src/dashboard/store/useStore.ts](src/dashboard/store/useStore.ts)** — Zustand store (функция setActiveProfile)
+7. **[src/dashboard/components/ScoringSettings.tsx](src/dashboard/components/ScoringSettings.tsx)** — UI для выбора профиля
+
+### Как добавить новый профиль
+
+1. Расширить `ProfileType` в [src/shared/types.ts](src/shared/types.ts):
+   ```typescript
+   export type ProfileType = 'fullstack' | 'devops' | 'backend'; // +backend
+   ```
+
+2. Добавить профиль в [src/shared/resume-parser.ts](src/shared/resume-parser.ts):
+   ```typescript
+   export const BACKEND_PROFILE: ProfileData = { ... }
+   ALL_PROFILES.backend = BACKEND_PROFILE;
+   ```
+
+3. Добавить конфиг в [src/shared/constants.ts](src/shared/constants.ts):
+   ```typescript
+   export const BACKEND_SCORING: ScoringConfig = { ... }
+   // обновить getScoringConfigByProfile()
+   ```
+
+4. UI обновится автоматически через `getAllProfiles()`
+
+### Архитектура скорирования
+
+**Поток данных:**
+```
+Content Script парсит DOM
+  ↓
+RawVacancy (без скора) → background
+  ↓
+scoreVacancyWithProfile(raw, activeProfile) → Vacancy (с скором)
+  ↓
+chrome.storage.local
+  ↓
+Zustand store → React компоненты
+```
+
+### Персистентность
+
+- **AppSettings.activeProfile** — сохраняется в `chrome.storage.local` через `settingsStorage`
+- При смене профиля → `setActiveProfile()` → обновляется settings + перечитывается config
+- Вакансии пересчитываются при следующем сканировании, старые пометки (liked/applied/hidden) сохраняются
+
+### Ключевой момент: chrome.storage.onChanged
+
+`useStore.init()` подписывается на изменения в хранилище. Это позволяет dashboard видеть прогресс сканирования в реальном времени без ручного refresh.
 
 ## License
 
