@@ -6,12 +6,12 @@ export interface Salary {
   raw: string | null;
   from: number | null;
   to: number | null;
-  currency: 'RUB' | 'USD' | 'EUR' | null;
-  period: 'hour' | 'project' | 'month' | null;
-  gross: 'gross' | 'net' | null;
+  currency: "RUB" | "USD" | "EUR" | null;
+  period: "hour" | "project" | "month" | null;
+  gross: "gross" | "net" | null;
 }
 
-export type VacancyStatus = 'new' | 'liked' | 'applied' | 'hidden';
+export type VacancyStatus = "new" | "liked" | "applied" | "hidden";
 
 export interface Vacancy {
   id: string;
@@ -47,7 +47,7 @@ export interface ScoringConfig {
 }
 
 export interface ScanProgress {
-  status: 'idle' | 'scanning' | 'done' | 'error';
+  status: "idle" | "scanning" | "done" | "error";
   currentPage: number;
   totalPages: number;
   totalVacancies: number;
@@ -58,15 +58,29 @@ export interface ScanProgress {
   error?: string;
 }
 
+// Profile types — поддержка нескольких резюме
+export type ProfileType = "fullstack" | "devops";
+
 // Message types — связь между service worker / content script / dashboard
 export type Message =
-  | { type: 'SCAN_START'; url: string }
-  | { type: 'SCAN_STOP' }
-  | { type: 'SCAN_PROGRESS'; progress: ScanProgress }
-  | { type: 'PARSE_PAGE'; payload: { page: number } }
-  | { type: 'PARSE_RESULT'; payload: { vacancies: RawVacancy[]; page: number; totalPages: number; totalCount: number } }
-  | { type: 'GET_STATE' }
-  | { type: 'OPEN_DASHBOARD' };
+  | { type: "SCAN_START"; url: string }
+  | { type: "SCAN_STOP" }
+  | { type: "SCAN_PROGRESS"; progress: ScanProgress }
+  | { type: "PARSE_PAGE"; payload: { page: number } }
+  | {
+      type: "PARSE_RESULT";
+      payload: {
+        vacancies: RawVacancy[];
+        page: number;
+        totalPages: number;
+        totalCount: number;
+      };
+    }
+  | { type: "GET_STATE" }
+  | { type: "OPEN_DASHBOARD" };
 
 // Raw — то что парсит content script (без скоринга)
-export type RawVacancy = Omit<Vacancy, 'score' | 'matches' | 'excluded' | 'status'>;
+export type RawVacancy = Omit<
+  Vacancy,
+  "score" | "matches" | "excluded" | "status"
+>;
